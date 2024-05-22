@@ -4,7 +4,7 @@
   <name>ros_gz_tugbot</name>
   <version>0.0.0</version>
   <description>TODO: Package description</description>
-  <maintainer email="moonlab@todo.todo">moonlab</maintainer>
+  <maintainer email="root@todo.todo">root</maintainer>
   <license>TODO: License declaration</license>
 
   <depend>rclpy</depend>
