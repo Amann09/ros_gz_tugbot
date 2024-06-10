@@ -5,15 +5,34 @@ from geometry_msgs.msg import Twist, PoseStamped
 from nav_msgs.msg import Odometry
 import math
 
+global x0 
+global y0
+
+way = [(5, 2), (6, 4), (7, 5), (15, 10), (15, 9), (15, 8), (15, 7), (14, 7), (14, 8), (13, 8), (14, 9), (14, 10), 
+        (14, 11), (13, 10), (12, 10), (11, 10), (11, 11), (10, 11), (10, 10), (11, 9), (10, 9), (9, 10), (9, 11), (10, 12), (9, 12), (9, 13), 
+        (9, 14), (8, 14), (7, 14), (8, 13), (7, 13), (6, 13), (5, 13), (4, 13), (5, 12), (6, 12), (6, 11), (6, 10), (6, 9), (7, 9), (8, 9), 
+        (7, 10), (7, 11), (7, 12), (8, 12), (8, 11), (8, 10), (9, 9), (8, 8), (9, 8), (10, 8), (9, 7), (8, 7), (7, 7), (7, 8), (6, 8), (5, 7), 
+        (4, 6), (4, 5), (3, 5), (3, 6), (2, 7), (1, 7), (1, 6), (2, 6), (2, 5), (3, 4), (4, 4), (4, 3), (4, 2), (5, 2), (5, 3), (5, 4), (5, 5), 
+        (5, 6), (6, 7), (7, 6), (6, 6), (6, 5), (6, 4), (6, 3), (7, 3), (7, 2), (6, 2), (5, 1), (5, 0), (6, 0), (6, 1), (7, 1), (7, 0), (8, 0), 
+        (8, 1), (8, 2), (8, 3), (8, 4), (7, 4), (7, 5), (8, 5), (8, 6), (9, 6), (10, 7), (11, 8), (12, 9), (13, 9), (12, 8), (12, 7), (11, 7), 
+        (10, 6), (11, 6), (12, 6), (13, 7), (13, 6), (14, 6), (15, 6), (15, 5), (15, 4), (15, 3), (15, 2), (14, 2), (14, 3), (14, 4), (14, 5), 
+        (13, 5), (12, 5), (12, 4), (11, 4), (11, 5), (10, 5), (9, 5), (9, 4), (9, 3), (10, 4), (10, 3), (10, 2), (9, 2), (10, 1), (9, 1), (9, 0), 
+        (10, 0), (11, 0), (11, 1), (11, 2), (11, 3), (12, 3), (12, 2), (12, 1), (12, 0), (13, 0), (14, 0), (15, 0), (15, 1), (14, 1), (13, 1), 
+        (13, 2), (13, 3), (13, 4)]
+
 class PIDController(Node):
     def __init__(self):
         super().__init__('pid_controller')
-        self.goal_x = float(5) - 3.82
-        self.goal_y = float(2) - 2.09
+        x0 = 3.90 # 3.82
+        y0 = 2.00 # 2.09
+
+        self.waypoints = [ (x - x0, y - y0) for x, y in way ]
+        self.current_waypoint_index = 0
+        self.goal_x, self.goal_y = self.waypoints[self.current_waypoint_index]
 
         self.get_logger().info('Tugbot controller has started...')
 
-        self.subscriber = self.create_subscription(Odometry, '/model/tugbot/odometry', self.pose_callback, 10)
+        self.subscriber = self.create_subscription(Odometry, '/model/tugbot/odometry', self.odom_callback, 10)
         self.publisher = self.create_publisher(Twist, '/model/tugbot/cmd_vel', 10)
 
         self.kp_linear = 1.0
@@ -30,7 +49,7 @@ class PIDController(Node):
         self.prev_error_angular = 0.0
         self.integral_angular = 0.0
 
-    def pose_callback(self, msg: Odometry):
+    def odom_callback(self, msg: Odometry):
         current_x = msg.pose.pose.position.x
         current_y = msg.pose.pose.position.y
         current_orientation = msg.pose.pose.orientation
@@ -62,10 +81,18 @@ class PIDController(Node):
         if error_linear < 0.1:
             linear_speed = 0.0
             angular_speed = 0.0
-            self.get_logger().info('Goal reached!')
-            self.publisher.publish(Twist())
-            exit()
-            return
+            self.get_logger().info('Waypoint reached!')
+
+            # Move to the next waypoint
+            self.current_waypoint_index += 1
+            if self.current_waypoint_index < len(self.waypoints):
+                self.goal_x, self.goal_y = self.waypoints[self.current_waypoint_index]
+                self.get_logger().info(f"Moving to next waypoint: {self.goal_x}, {self.goal_y}")
+            else:
+                self.get_logger().info('All waypoints reached!')
+                self.publisher.publish(Twist())
+                exit()
+                return
 
         # Publish velocity commands
         cmd_vel = Twist()
@@ -113,4 +140,7 @@ def main(args=None):
     rclpy.shutdown()
 
 if __name__ == '__main__':
-    main()
+    try:
+        main()
+    except Exception as e:
+        print(e)
